@@ -1,0 +1,8 @@
+[package]
+name = "heimdal"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+termion = { version = "*"}
+tui = { version = "0.18.0", default-features = false, features = ['termion'] }
