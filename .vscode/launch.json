@@ -1,0 +1,42 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'heimdal'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=heimdal",
+                    "--package=heimdal"
+                ],
+                "filter": {
+                    "name": "heimdal",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'heimdal'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=heimdal",
+                    "--package=heimdal"
+                ],
+                "filter": {
+                    "name": "heimdal",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
