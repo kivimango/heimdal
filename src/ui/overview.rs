@@ -1,14 +1,14 @@
 use std::io::Stdout;
 
 use byte_unit::{Byte, ByteUnit};
-use sysinfo::{CpuExt, System, SystemExt};
+use sysinfo::{CpuExt, DiskExt, System, SystemExt};
 use termion::raw::RawTerminal;
 use tui::{
     backend::TermionBackend,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::Text,
-    widgets::{Block, Borders, Gauge, Paragraph},
+    widgets::{Block, BorderType, Borders, Gauge, Paragraph},
     Frame,
 };
 
@@ -21,9 +21,7 @@ pub struct Overview {
 impl Overview {
     pub fn new() -> Self {
         // TODO: refresh only memory and cpu
-        let mut system_info = System::new();
-        system_info.refresh_all();
-
+        let system_info = System::new_all();
         Overview { system_info }
     }
 
@@ -44,6 +42,7 @@ impl Overview {
 
         self.render_cpu(frame, overview_layout[0]);
         self.render_memory(frame, overview_layout[1]);
+        self.render_disks(frame, overview_layout[2]);
     }
 
     /// Renders CPU basic information with an usage bar
@@ -124,6 +123,55 @@ impl Overview {
                     .border_type(tui::widgets::BorderType::Plain),
             );
         frame.render_widget(memory_usage_bar, memory_layout[1]);
+    }
+
+    fn render_disks(&self, frame: &mut Frame<TermionBackend<RawTerminal<Stdout>>>, area: Rect) {
+        let disks = self.system_info.disks();
+        let mut total_space = 0;
+        let mut available_space = 0;
+
+        for disk in disks {
+            available_space += disk.available_space();
+            total_space += disk.total_space();
+        }
+
+        let total_space_gb = Byte::from_bytes(total_space).get_adjusted_unit(ByteUnit::GB);
+        let used_space_gb =
+            Byte::from_bytes(total_space - available_space).get_adjusted_unit(ByteUnit::GB);
+        let available_space_gb = Byte::from_bytes(available_space).get_adjusted_unit(ByteUnit::GB);
+
+        let disks_text = Text::from(format!(
+            "Total space: {}\nUsed space: {}\nAvailable space: {}",
+            total_space_gb, used_space_gb, available_space_gb
+        ));
+        let disks_label = Paragraph::new(disks_text).block(
+            Block::default()
+                .title("Disks")
+                .borders(Borders::ALL)
+                .border_type(BorderType::Plain),
+        );
+
+        let one_percent = total_space / 100;
+        let used = total_space - available_space;
+        let usage_percent = used / one_percent;
+
+        let disk_layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
+            .split(area);
+        let gauge_bar_color = color_for_percent(usage_percent as u16);
+        let disk_usage_bar = Gauge::default()
+            .percent(usage_percent as u16)
+            .gauge_style(Style::default().fg(gauge_bar_color))
+            .block(
+                Block::default()
+                    .title("Storage space usage")
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Plain),
+            );
+
+        frame.render_widget(disks_label, disk_layout[0]);
+        frame.render_widget(disk_usage_bar, disk_layout[1]);
     }
 
     pub fn tick(&mut self) {
