@@ -1,7 +1,9 @@
 use tui::style::Color;
 
+mod cpu;
 mod overview;
 
+pub use self::cpu::Cpuview;
 pub use self::overview::Overview;
 
 /// Returns a color for Gauge widget's bar based on a percentage
