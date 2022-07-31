@@ -26,7 +26,7 @@ impl Overview {
     }
 
     /// Renders the system resources overview: cpu, memory, disks, network infos
-    pub fn render_overview(&mut self, frame: &mut Frame<TermionBackend<RawTerminal<Stdout>>>) {
+    pub fn render_overview(&mut self, frame: &mut Frame<TermionBackend<RawTerminal<Stdout>>>, area: Rect) {
         let overview_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints(
@@ -38,7 +38,7 @@ impl Overview {
                 ]
                 .as_ref(),
             )
-            .split(frame.size());
+            .split(area);
 
         self.render_cpu(frame, overview_layout[0]);
         self.render_memory(frame, overview_layout[1]);
