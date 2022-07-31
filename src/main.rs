@@ -1,3 +1,4 @@
+mod app;
 mod core;
 mod ui;
 
@@ -7,7 +8,9 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 use std::{error::Error, io};
+use app::App;
 use termion::input::TermRead;
+use termion::event::Key::Char;
 use termion::raw::IntoRawMode;
 use tui::{backend::TermionBackend, Terminal};
 
@@ -51,23 +54,19 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     });
 
-    let mut overview = ui::Overview::new();
+    let mut app = App::new();
 
     loop {
         // render the current state of the terminal on the main thread
         terminal.draw(|frame| {
-            overview.render_overview(frame);
-
-            if should_update {
-                overview.tick();
-                should_update = false;
-            }
+            app.render(frame);
         })?;
 
         // input handling
         match rx.recv()? {
             Event::Input(key) => match key {
                 termion::event::Key::Char('q') => break,
+                Char(ch) => app.switch_tab(ch),
                 _ => (),
             },
             Event::Tick => should_update = true,
