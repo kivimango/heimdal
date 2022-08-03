@@ -1,7 +1,13 @@
-use std::{io::Stdout};
-use sysinfo::{System, SystemExt, CpuExt};
+use std::io::Stdout;
+use sysinfo::{Component, ComponentExt, CpuExt, System, SystemExt};
 use termion::raw::RawTerminal;
-use tui::{Frame, backend::TermionBackend, layout::{Rect, Layout, Constraint}, widgets::{Block, Borders, BarChart, Paragraph}, text::Text};
+use tui::{
+    backend::TermionBackend,
+    layout::{Constraint, Layout, Rect},
+    text::Text,
+    widgets::{BarChart, Block, BorderType, Borders, Paragraph},
+    Frame,
+};
 
 pub struct Cpuview {
     cpu_brand: String,
@@ -14,20 +20,27 @@ impl Cpuview {
         }
     }
 
-    pub fn render_cpu(&self, frame: &mut Frame<TermionBackend<RawTerminal<Stdout>>>, area: Rect, system: &System) {
+    pub fn render_cpu(
+        &self,
+        frame: &mut Frame<TermionBackend<RawTerminal<Stdout>>>,
+        area: Rect,
+        system: &System,
+    ) {
         let cpu_layout = Layout::default()
             .direction(tui::layout::Direction::Horizontal)
-            .constraints([
-                Constraint::Percentage(35),
-                Constraint::Percentage(65)
-            ].as_ref())
+            .constraints([Constraint::Percentage(35), Constraint::Percentage(65)].as_ref())
             .split(area);
+
+        let cpu_temp_layout = Layout::default()
+            .direction(tui::layout::Direction::Vertical)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+            .split(cpu_layout[0]);
 
         let cpu_block = Block::default()
             .title("CPU")
             .borders(Borders::ALL)
-            .border_type(tui::widgets::BorderType::Plain);
-        
+            .border_type(BorderType::Plain);
+
         let core_count = system.physical_core_count().unwrap_or(1);
         let cpu_name = system.global_cpu_info().brand();
         let cpu_freq = system.global_cpu_info().frequency().to_string();
@@ -38,7 +51,28 @@ impl Cpuview {
         ));
         let cpu_label = Paragraph::new(cpu_text).block(cpu_block);
 
-        frame.render_widget(cpu_label, cpu_layout[0]);
+        frame.render_widget(cpu_label, cpu_temp_layout[0]);
+
+        let cpu_temp_block = Block::default()
+            .title("Temperatures")
+            .borders(Borders::ALL)
+            .border_type(BorderType::Plain);
+
+        let sensors: Vec<&Component> = system
+            .components()
+            .iter()
+            .filter(|component| component.label().contains("Core").clone())
+            .collect();
+
+        let mut sensor_labels = Text::from("");
+        for s in sensors {
+            let span = Text::raw(format!("{}: {}°C", s.label(), s.temperature()));
+            sensor_labels.extend(span);
+        }
+
+        let sensors = Paragraph::new(sensor_labels).block(cpu_temp_block);
+
+        frame.render_widget(sensors, cpu_temp_layout[1]);
 
         let mut data = Vec::new();
         let mut core_titles = Vec::new();
@@ -60,15 +94,9 @@ impl Cpuview {
         }
 
         let cpu_cores_chart = BarChart::default()
-        .block(
-            Block::default()
-            .title("CPU Usage")
-            .borders(Borders::ALL)
-        )
-        .bar_width(8)
-        .data(
-            &data
-        );
+            .block(Block::default().title("CPU Usage").borders(Borders::ALL))
+            .bar_width(8)
+            .data(&data);
 
         frame.render_widget(cpu_cores_chart, cpu_layout[1]);
     }
