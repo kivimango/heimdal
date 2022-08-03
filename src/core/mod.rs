@@ -1,4 +1,3 @@
-
 /// An application event.
 /// If within that tick rate no input event happens, the application will emit a Tick.
 /// Otherwise, the input will be emitted.

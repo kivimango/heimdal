@@ -3,14 +3,14 @@ mod core;
 mod ui;
 
 use crate::core::Event;
+use app::App;
 use std::io::stdin;
 use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 use std::{error::Error, io};
-use app::App;
-use termion::input::TermRead;
 use termion::event::Key::Char;
+use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use tui::{backend::TermionBackend, Terminal};
 

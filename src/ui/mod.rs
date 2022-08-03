@@ -17,7 +17,6 @@ pub fn color_for_percent(percentage: u16) -> Color {
     }
 }
 
-
 #[derive(Copy, Clone)]
 pub(crate) enum Tab {
     Overview,
@@ -25,18 +24,18 @@ pub(crate) enum Tab {
     Memory,
     Processes,
     Storage,
-    Network
+    Network,
 }
 
 impl From<Tab> for usize {
     fn from(tab: Tab) -> Self {
         match tab {
-            Tab::Overview  => 0,
-            Tab::CPU       => 1,
-            Tab::Memory    => 2,
+            Tab::Overview => 0,
+            Tab::CPU => 1,
+            Tab::Memory => 2,
             Tab::Processes => 3,
-            Tab::Storage   => 4,
-            Tab::Network   => 5,
+            Tab::Storage => 4,
+            Tab::Network => 5,
         }
     }
 }
@@ -49,8 +48,7 @@ impl Tab {
             Tab::Memory => *self = Tab::Processes,
             Tab::Processes => *self = Tab::Storage,
             Tab::Storage => *self = Tab::Network,
-            Tab::Network => *self = Tab::Overview
+            Tab::Network => *self = Tab::Overview,
         }
     }
 }
-
