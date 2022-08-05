@@ -2,9 +2,11 @@ use tui::style::Color;
 
 mod cpu;
 mod overview;
+mod processes;
 
 pub use self::cpu::Cpuview;
 pub use self::overview::Overview;
+pub use self::processes::ProcessesView;
 
 /// Returns a color for Gauge widget's bar based on a percentage
 pub fn color_for_percent(percentage: u16) -> Color {
