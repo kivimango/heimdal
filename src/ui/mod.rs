@@ -53,4 +53,15 @@ impl Tab {
             Tab::Network => *self = Tab::Overview,
         }
     }
+
+    pub(crate) fn previous(&mut self) {
+        match self {
+            Tab::Overview => *self = Tab::Network,
+            Tab::CPU => *self = Tab::Overview,
+            Tab::Memory => *self = Tab::CPU,
+            Tab::Processes => *self = Tab::Memory,
+            Tab::Storage => *self = Tab::Processes,
+            Tab::Network => *self = Tab::Storage,
+        }
+    }
 }
