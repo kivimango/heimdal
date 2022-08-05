@@ -99,7 +99,11 @@ impl App {
             's' | 'S' => self.active_tab = Tab::Storage,
             'n' | 'N' => self.active_tab = Tab::Network,
             '\t' => self.active_tab.next(),
-            _ => (),
+            _ => (eprint!("{}", ch)),
         }
+    }
+
+    pub(crate) fn previous_tab(&mut self) {
+        self.active_tab.previous();
     }
 }

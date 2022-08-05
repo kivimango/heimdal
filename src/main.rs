@@ -66,6 +66,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         match rx.recv()? {
             Event::Input(key) => match key {
                 termion::event::Key::Char('q') => break,
+                // termion does not have a separate Tab Key like Backspace, it handled as a '\t' char
+                termion::event::Key::Backspace => app.previous_tab(),
                 Char(ch) => app.switch_tab(ch),
                 _ => (),
             },
