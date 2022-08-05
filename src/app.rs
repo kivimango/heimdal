@@ -1,4 +1,4 @@
-use crate::ui::{Cpuview, Overview, Tab};
+use crate::ui::{Cpuview, Overview, ProcessesView, Tab};
 use std::io::Stdout;
 use sysinfo::{System, SystemExt};
 use termion::raw::RawTerminal;
@@ -25,6 +25,7 @@ pub(crate) struct App {
     system_info: System,
     overview: Overview,
     cpu_view: Cpuview,
+    process_view: ProcessesView,
 }
 
 impl App {
@@ -36,6 +37,7 @@ impl App {
             system_info,
             overview: Overview::new(),
             cpu_view: Cpuview::new(),
+            process_view: ProcessesView::new(),
         }
     }
 
@@ -52,8 +54,11 @@ impl App {
             Tab::CPU => self
                 .cpu_view
                 .render_cpu(frame, layout[1], &self.system_info),
+            Tab::Processes => {
+                self.process_view
+                    .render_processes(frame, layout[1], &self.system_info)
+            }
             /*Tab::Memory => render_memory(),
-            Tab::Processes => render_processes(),
             Tab::Storage => render_storage(),
             Tab::Network => render_network()*/
             _ => (),
