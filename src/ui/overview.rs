@@ -1,28 +1,52 @@
-use std::io::Stdout;
-
+use super::color_for_percent;
 use byte_unit::{Byte, ByteUnit};
+use std::io::Stdout;
 use sysinfo::{CpuExt, DiskExt, System, SystemExt};
 use termion::raw::RawTerminal;
 use tui::{
     backend::TermionBackend,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
-    text::Text,
+    text::{Span, Spans, Text},
     widgets::{Block, BorderType, Borders, Gauge, Paragraph},
     Frame,
 };
 
-use super::color_for_percent;
-
+#[derive(Default)]
 pub struct Overview {
     system_info: System,
+    os: String,
+    os_version: String,
+    kernel_version: String,
+    host_name: String,
+    uptime: u64,
+    cpu_load: usize,
+    memory_total: u64,
+    memory_used: u64,
+    disk_space_total: u64,
+    disk_space_used: u64,
+    process_count: u64,
+    network_status: String,
+    network_sent: u64,
+    network_received: u64,
 }
 
 impl Overview {
     pub fn new() -> Self {
         // TODO: refresh only memory and cpu
         let system_info = System::new_all();
-        Overview { system_info }
+        let os = system_info.name().unwrap_or("N/A".to_string());
+        let os_version = system_info.os_version().unwrap_or("N/A".to_string());
+        let kernel_version = system_info.kernel_version().unwrap_or("N/A".to_string());
+        let host_name = system_info.host_name().unwrap_or("N/A".to_string());
+
+        Overview {
+            os,
+            os_version,
+            kernel_version,
+            host_name,
+            ..Default::default()
+        }
     }
 
     /// Renders the system resources overview: cpu, memory, disks, network infos
@@ -31,6 +55,18 @@ impl Overview {
         frame: &mut Frame<TermionBackend<RawTerminal<Stdout>>>,
         area: Rect,
     ) {
+        self.render_system_info(frame, area);
+        //self.render_cpu(frame, overview_layout[0]);
+        //self.render_memory(frame, overview_layout[1]);
+        //self.render_disks(frame, overview_layout[2]);
+    }
+
+    fn render_system_info(
+        &self,
+        frame: &mut Frame<TermionBackend<RawTerminal<Stdout>>>,
+        area: Rect,
+    ) {
+        // Layout
         let overview_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints(
@@ -44,9 +80,49 @@ impl Overview {
             )
             .split(area);
 
-        self.render_cpu(frame, overview_layout[0]);
-        self.render_memory(frame, overview_layout[1]);
-        self.render_disks(frame, overview_layout[2]);
+        let system_info_layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .margin(1)
+            .split(overview_layout[0]);
+
+        // Data
+        let overview = overview(&self.system_info);
+        let uptime = overview.uptime.to_string();
+
+        // Widgets
+        //let system_info_area = Rect::new(area.x, area.y, area.width, area.height);
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .title("System information");
+
+        let spans = vec![
+            Spans::from(vec![
+                Span::raw("Operating system: "),
+                Span::raw(overview.os),
+            ]),
+            Spans::from(vec![Span::raw("Version: "), Span::raw(overview.os_version)]),
+            Spans::from(vec![
+                Span::raw("Kernel version: "),
+                Span::raw(overview.kernel_version),
+            ]),
+        ];
+        let os_text = Text::from(spans);
+        let os_label = Paragraph::new(os_text);
+
+        let spans2 = vec![
+            Spans::from(vec![Span::raw("Uptime: "), Span::raw(uptime)]),
+            Spans::from(vec![Span::raw("Hostname: "), Span::raw(overview.host_name)]),
+        ];
+        let uptime_text = Text::from(spans2);
+        let uptime_label = Paragraph::new(uptime_text);
+
+        frame.render_widget(block, overview_layout[0]);
+        frame.render_widget(
+            os_label.alignment(tui::layout::Alignment::Left),
+            system_info_layout[0],
+        );
+        frame.render_widget(uptime_label, system_info_layout[1]);
     }
 
     /// Renders CPU basic information with an usage bar
@@ -64,7 +140,7 @@ impl Overview {
         let cpu_block = Block::default()
             .title("CPU")
             .borders(Borders::ALL)
-            .border_type(tui::widgets::BorderType::Plain);
+            .border_type(BorderType::Plain);
 
         let cpu_text = Text::from(format!(
             "Name: {}\nFreq: {} Mhz\nCores: {}",
@@ -80,7 +156,7 @@ impl Overview {
                 Block::default()
                     .title("CPU usage")
                     .borders(Borders::ALL)
-                    .border_type(tui::widgets::BorderType::Plain),
+                    .border_type(BorderType::Plain),
             );
 
         frame.render_widget(cpu_label, cpu_layout[0]);
@@ -106,7 +182,7 @@ impl Overview {
         let memory_box = Block::default()
             .title("Memory")
             .borders(Borders::ALL)
-            .border_type(tui::widgets::BorderType::Plain);
+            .border_type(BorderType::Plain);
 
         let memory_label = Paragraph::new(Text::from(format!(
             "Total memory: {}\nAvailable memory: {}\n",
@@ -124,7 +200,7 @@ impl Overview {
                 Block::default()
                     .title("Memory usage")
                     .borders(Borders::ALL)
-                    .border_type(tui::widgets::BorderType::Plain),
+                    .border_type(BorderType::Plain),
             );
         frame.render_widget(memory_usage_bar, memory_layout[1]);
     }
@@ -183,4 +259,81 @@ impl Overview {
         self.system_info.refresh_cpu();
         self.system_info.refresh_memory();
     }
+}
+
+impl Overview {
+    pub fn os(mut self, os_string: String) -> Self {
+        self.os = os_string;
+        self
+    }
+
+    pub fn os_version(mut self, os_version: String) -> Self {
+        self.os_version = os_version;
+        self
+    }
+
+    pub fn kernel_version(mut self, kernel_version: String) -> Self {
+        self.kernel_version = kernel_version;
+        self
+    }
+
+    pub fn host_name(mut self, host_name: String) -> Self {
+        self.host_name = host_name;
+        self
+    }
+
+    pub fn uptime(mut self, uptime: u64) -> Self {
+        self.uptime = uptime;
+        self
+    }
+
+    pub fn cpu_load(mut self, cpu_load: usize) -> Self {
+        self.cpu_load = cpu_load;
+        self
+    }
+
+    pub fn memory_total(mut self, memory_total: u64) -> Self {
+        self.memory_total = memory_total;
+        self
+    }
+
+    pub fn memory_used(mut self, memory_used: u64) -> Self {
+        self.memory_used = memory_used;
+        self
+    }
+
+    pub fn disk_space_total(mut self, disk_space_total: u64) -> Self {
+        self.disk_space_total = disk_space_total;
+        self
+    }
+
+    pub fn disk_space_used(mut self, disk_space_used: u64) -> Self {
+        self.disk_space_used = disk_space_used;
+        self
+    }
+
+    pub fn process_count(mut self, process_count: u64) -> Self {
+        self.process_count = process_count;
+        self
+    }
+
+    pub fn network_status(mut self, network_status: String) -> Self {
+        self.network_status = network_status;
+        self
+    }
+
+    pub fn network_sent(mut self, network_sent: u64) -> Self {
+        self.network_sent = network_sent;
+        self
+    }
+
+    pub fn network_received(mut self, network_received: u64) -> Self {
+        self.network_received = network_received;
+        self
+    }
+}
+
+fn overview(system_info: &System) -> Overview {
+    const N_A: &'static str = "N/A";
+    Overview::new().uptime(system_info.uptime())
 }
