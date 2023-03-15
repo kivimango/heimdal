@@ -9,7 +9,7 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 use std::{error::Error, io};
-use termion::event::Key::Char;
+use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use tui::{backend::TermionBackend, Terminal};
@@ -65,10 +65,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         // input handling
         match rx.recv()? {
             Event::Input(key) => match key {
-                termion::event::Key::Char('q') => break,
+                Key::Char('q') => break,
                 // termion does not have a separate Tab Key like Backspace, it handled as a '\t' char
                 termion::event::Key::Backspace => app.previous_tab(),
-                Char(ch) => app.switch_tab(ch),
+                Key::Up | Key::Down | Key::Left | Key::Right => app.handle_arrow_keys(key),
+                Key::Char(ch) => app.switch_tab(ch),
                 _ => (),
             },
             Event::Tick => should_update = true,
