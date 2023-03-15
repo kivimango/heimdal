@@ -1,7 +1,7 @@
 use crate::ui::{Cpuview, Overview, ProcessesView, Tab};
 use std::io::Stdout;
 use sysinfo::{System, SystemExt};
-use termion::raw::RawTerminal;
+use termion::{event::Key, raw::RawTerminal};
 use tui::{
     backend::TermionBackend,
     layout::{Constraint, Layout},
@@ -88,6 +88,17 @@ impl App {
             .divider(Span::raw("|"));
 
         frame.render_widget(tabs, layout[0]);
+    }
+
+    pub(crate) fn handle_arrow_keys(&self, key: Key) {
+        match self.active_tab {
+            Tab::Overview => (),
+            Tab::CPU => (),
+            Tab::Memory => (),
+            Tab::Processes => self.process_view.handle_arrow_keys(key),
+            Tab::Storage => (),
+            Tab::Network => (),
+        }
     }
 
     pub(crate) fn switch_tab(&mut self, ch: char) {
