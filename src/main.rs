@@ -1,16 +1,14 @@
 mod app;
 mod core;
+mod events;
 mod ui;
 
 use crate::core::Event;
 use app::App;
-use std::io::stdin;
-use std::sync::mpsc;
-use std::thread;
-use std::time::{Duration, Instant};
+use events::Events;
+use std::time::Duration;
 use std::{error::Error, io};
 use termion::event::Key;
-use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use tui::{backend::TermionBackend, Terminal};
 
@@ -25,35 +23,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(backend)?;
     let _ = terminal.clear();
 
-    let (tx, rx) = mpsc::channel();
     //TODO: tick_rate could be set from the args and/or from a cfg file
     let tick_rate = Duration::from_millis(DEFAULT_TICK_RATE);
     let mut should_update = false;
-
-    // Off-thread input event loop
-    thread::spawn(move || {
-        let stdin = stdin();
-        let mut keys = stdin.keys();
-        let mut last_tick = Instant::now();
-
-        loop {
-            let key = keys.next();
-
-            if let Some(key) = key {
-                match key {
-                    Ok(key) => tx.send(Event::Input(key)).unwrap(),
-                    Err(error) => eprint!("Error reading key from input: {}", error),
-                }
-            }
-
-            if last_tick.elapsed() >= tick_rate {
-                if let Ok(_) = tx.send(Event::Tick) {
-                    last_tick = Instant::now();
-                }
-            }
-        }
-    });
-
+    let events = Events::new();
     let mut app = App::new();
 
     loop {
@@ -63,16 +36,20 @@ fn main() -> Result<(), Box<dyn Error>> {
         })?;
 
         // input handling
-        match rx.recv()? {
-            Event::Input(key) => match key {
-                Key::Char('q') => break,
-                // termion does not have a separate Tab Key like Backspace, it handled as a '\t' char
-                termion::event::Key::Backspace => app.previous_tab(),
-                Key::Up | Key::Down | Key::Left | Key::Right => app.handle_arrow_keys(key),
-                Key::Char(ch) => app.switch_tab(ch),
-                _ => (),
-            },
-            Event::Tick => should_update = true,
+        if let Ok(event) = events.recv() {
+            match event {
+                Event::Input(key) => match key {
+                    Key::Char('q') => break,
+                    // termion does not have a separate Tab Key like Backspace, it handled as a '\t' char
+                    termion::event::Key::Backspace => app.previous_tab(),
+                    Key::Up | Key::Down | Key::Left | Key::Right => app.handle_arrow_keys(key),
+                    Key::Char(ch) => app.switch_tab(ch),
+                    _ => (),
+                },
+                Event::Tick => {
+                    app.tick();
+                }
+            }
         }
     }
 
