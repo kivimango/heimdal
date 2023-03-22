@@ -45,7 +45,6 @@ impl App {
     }
 
     pub(crate) fn render(&mut self, frame: &mut Frame<TermionBackend<RawTerminal<Stdout>>>) {
-        self.system_info.refresh_all();
         let layout = Layout::default()
             .direction(tui::layout::Direction::Vertical)
             .constraints([Constraint::Percentage(5), Constraint::Percentage(95)].as_ref())
