@@ -1,5 +1,5 @@
 use crate::ui::{Cpuview, Overview, ProcessesView, Tab};
-use std::io::Stdout;
+use std::{io::Stdout, rc::Rc};
 use sysinfo::{System, SystemExt};
 use termion::{event::Key, raw::RawTerminal};
 use tui::{
@@ -20,9 +20,10 @@ const TAB_TITLES: [&str; 6] = [
     "Network",
 ];
 
+
 pub(crate) struct App {
     active_tab: Tab,
-    system_info: System,
+    system_info: Rc<System>,
     overview: Overview,
     cpu_view: Cpuview,
     process_view: ProcessesView,
@@ -30,7 +31,9 @@ pub(crate) struct App {
 
 impl App {
     pub(crate) fn new() -> Self {
-        let system_info = System::new_all();
+        let mut system_info = System::new_all();
+        system_info.refresh_all();
+        let system_info = Rc::new(system_info);
 
         App {
             active_tab: Tab::Overview,
@@ -43,7 +46,6 @@ impl App {
 
     pub(crate) fn render(&mut self, frame: &mut Frame<TermionBackend<RawTerminal<Stdout>>>) {
         self.system_info.refresh_all();
-
         let layout = Layout::default()
             .direction(tui::layout::Direction::Vertical)
             .constraints([Constraint::Percentage(5), Constraint::Percentage(95)].as_ref())
@@ -110,7 +112,7 @@ impl App {
             's' | 'S' => self.active_tab = Tab::Storage,
             'n' | 'N' => self.active_tab = Tab::Network,
             '\t' => self.active_tab.next(),
-            _ => (eprint!("{}", ch)),
+            _ => (),
         }
     }
 
