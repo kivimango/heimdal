@@ -6,9 +6,9 @@ use termion::raw::RawTerminal;
 use tui::{
     backend::TermionBackend,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::Style,
     text::{Span, Spans, Text},
-    widgets::{Block, BorderType, Borders, Gauge, Paragraph},
+    widgets::{BarChart, Block, BorderType, Borders, Gauge, Paragraph},
     Frame,
 };
 
@@ -55,17 +55,8 @@ impl Overview {
         frame: &mut Frame<TermionBackend<RawTerminal<Stdout>>>,
         area: Rect,
     ) {
-        self.render_system_info(frame, area);
-        //self.render_cpu(frame, overview_layout[0]);
-        //self.render_memory(frame, overview_layout[1]);
-        //self.render_disks(frame, overview_layout[2]);
-    }
+        self.system_info.refresh_cpu();
 
-    fn render_system_info(
-        &self,
-        frame: &mut Frame<TermionBackend<RawTerminal<Stdout>>>,
-        area: Rect,
-    ) {
         // Layout
         let overview_layout = Layout::default()
             .direction(Direction::Vertical)
@@ -80,15 +71,31 @@ impl Overview {
             )
             .split(area);
 
+        self.render_system_info(frame, &overview_layout);
+        self.render_cpu(frame, &overview_layout);
+        //self.render_memory(frame, &overview_layout);
+        //self.render_disks(frame, overview_layout[2]);
+    }
+
+    fn render_system_info(
+        &self,
+        frame: &mut Frame<TermionBackend<RawTerminal<Stdout>>>,
+        layout: &Vec<Rect>,
+    ) {
         let system_info_layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
             .margin(1)
-            .split(overview_layout[0]);
+            .split(layout[0]);
 
         // Data
         let overview = overview(&self.system_info);
         let uptime = overview.uptime.to_string();
+        let load_data = self.system_info.load_average();
+        let average_load = format!(
+            "1m: {}% 5m: {}% 15m: {}%",
+            load_data.one, load_data.five, load_data.fifteen
+        );
 
         // Widgets
         //let system_info_area = Rect::new(area.x, area.y, area.width, area.height);
@@ -113,11 +120,12 @@ impl Overview {
         let spans2 = vec![
             Spans::from(vec![Span::raw("Uptime: "), Span::raw(uptime)]),
             Spans::from(vec![Span::raw("Hostname: "), Span::raw(overview.host_name)]),
+            Spans::from(vec![Span::raw("Avg Load: "), Span::raw(average_load)]),
         ];
         let uptime_text = Text::from(spans2);
         let uptime_label = Paragraph::new(uptime_text);
 
-        frame.render_widget(block, overview_layout[0]);
+        frame.render_widget(block, layout[0]);
         frame.render_widget(
             os_label.alignment(tui::layout::Alignment::Left),
             system_info_layout[0],
@@ -126,11 +134,22 @@ impl Overview {
     }
 
     /// Renders CPU basic information with an usage bar
-    fn render_cpu(&self, frame: &mut Frame<TermionBackend<RawTerminal<Stdout>>>, area: Rect) {
+    fn render_cpu(
+        &mut self,
+        frame: &mut Frame<TermionBackend<RawTerminal<Stdout>>>,
+        layout: &Vec<Rect>,
+    ) {
+        let cpu_memory_layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .split(layout[1]);
         let cpu_layout = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
-            .split(area);
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .margin(1)
+            .split(cpu_memory_layout[0]);
+
+        self.render_memory(frame, cpu_memory_layout[1]);
 
         let cpu_name = self.system_info.global_cpu_info().brand();
         let cpu_freq = self.system_info.global_cpu_info().frequency().to_string();
@@ -141,67 +160,62 @@ impl Overview {
             .title("CPU")
             .borders(Borders::ALL)
             .border_type(BorderType::Plain);
+        frame.render_widget(cpu_block, cpu_memory_layout[0]);
 
         let cpu_text = Text::from(format!(
-            "Name: {}\nFreq: {} Mhz\nCores: {}",
-            cpu_name, cpu_freq, cpu_cores
+            "Name: {}\nFreq: {} Mhz\nCores: {}\nUsage: {}%",
+            cpu_name, cpu_freq, cpu_cores, cpu_usage
         ));
-        let cpu_label = Paragraph::new(cpu_text).block(cpu_block);
+        let cpu_label = Paragraph::new(cpu_text);
 
         let gauge_bar_color = color_for_percent(cpu_usage);
         let cpu_usage_bar = Gauge::default()
             .percent(cpu_usage)
-            .gauge_style(Style::default().fg(gauge_bar_color))
-            .block(
-                Block::default()
-                    .title("CPU usage")
-                    .borders(Borders::ALL)
-                    .border_type(BorderType::Plain),
-            );
-
+            .gauge_style(Style::default().fg(gauge_bar_color));
         frame.render_widget(cpu_label, cpu_layout[0]);
         frame.render_widget(cpu_usage_bar, cpu_layout[1]);
     }
 
     /// Renders memory statistics with an usage bar
-    fn render_memory(&self, frame: &mut Frame<TermionBackend<RawTerminal<Stdout>>>, area: Rect) {
-        let (total_memory, available_memory) = (
+    fn render_memory(
+        &mut self,
+        frame: &mut Frame<TermionBackend<RawTerminal<Stdout>>>,
+        area: Rect,
+    ) {
+        self.system_info.refresh_memory();
+        let memory_layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .margin(1)
+            .split(area);
+
+        let block = Block::default()
+            .title("Memory usage")
+            .borders(Borders::ALL)
+            .border_type(BorderType::Plain);
+
+        let (total_memory, used_memory, available_memory) = (
             Byte::from_unit(self.system_info.total_memory() as f64, ByteUnit::KB).unwrap(),
+            Byte::from_unit(self.system_info.used_memory() as f64, ByteUnit::KB).unwrap(),
             Byte::from_unit(self.system_info.available_memory() as f64, ByteUnit::KB).unwrap(),
         );
 
         let one_percent = total_memory.get_bytes() / 100;
-        let used = total_memory.get_bytes() - available_memory.get_bytes();
-        let usage_percent = used / one_percent;
-
-        let memory_layout = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
-            .split(area);
-
-        let memory_box = Block::default()
-            .title("Memory")
-            .borders(Borders::ALL)
-            .border_type(BorderType::Plain);
+        let used_percent = used_memory.get_bytes() / one_percent;
 
         let memory_label = Paragraph::new(Text::from(format!(
-            "Total memory: {}\nAvailable memory: {}\n",
+            "Total memory: {}\nUsed Memory: {}\nAvailable memory: {}\n",
             total_memory.get_adjusted_unit(ByteUnit::GB),
+            used_memory.get_adjusted_unit(ByteUnit::GB),
             available_memory.get_adjusted_unit(ByteUnit::GB)
-        )))
-        .block(memory_box);
+        )));
 
+        frame.render_widget(block, area);
         frame.render_widget(memory_label, memory_layout[0]);
 
         let memory_usage_bar = Gauge::default()
-            .percent(usage_percent as u16)
-            .gauge_style(Style::default().fg(Color::Cyan))
-            .block(
-                Block::default()
-                    .title("Memory usage")
-                    .borders(Borders::ALL)
-                    .border_type(BorderType::Plain),
-            );
+            .percent(used_percent as u16)
+            .gauge_style(Style::default().fg(color_for_percent(used_percent as u16)));
         frame.render_widget(memory_usage_bar, memory_layout[1]);
     }
 
@@ -330,6 +344,10 @@ impl Overview {
     pub fn network_received(mut self, network_received: u64) -> Self {
         self.network_received = network_received;
         self
+    }
+
+    pub fn update(&mut self) {
+        self.system_info.refresh_cpu();
     }
 }
 
