@@ -1,4 +1,10 @@
+use std::io::Stdout;
+
+use termion::raw::RawTerminal;
+use tui::backend::TermionBackend;
+use tui::layout::Rect;
 use tui::style::Color;
+use tui::Frame;
 
 mod cpu;
 mod overview;
@@ -64,4 +70,13 @@ impl Tab {
             Tab::Network => *self = Tab::Storage,
         }
     }
+}
+
+pub trait View {
+    /// Renders the visual representation of a system's resources.
+    fn render(&self, frame: &mut Frame<TermionBackend<RawTerminal<Stdout>>>, area: Rect);
+
+    /// Updates the system information of the system's resources to render them in the next frame.
+    /// This method should only update the system's information related only to a specific resources.
+    fn update(&mut self);
 }
