@@ -118,4 +118,16 @@ impl App {
     pub(crate) fn previous_tab(&mut self) {
         self.active_tab.previous();
     }
+
+    pub(crate) fn tick(&mut self) {
+        match self.active_tab {
+            Tab::Overview => {
+                self.overview.update();
+            }
+            Tab::CPU => {
+                self.cpu_view.update();
+            }
+            Tab::Memory | Tab::Processes | Tab::Storage | Tab::Network  => {}
+        }
+    }
 }
