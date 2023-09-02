@@ -100,4 +100,6 @@ impl Cpuview {
 
         frame.render_widget(cpu_cores_chart, cpu_layout[1]);
     }
+
+    pub fn update(&mut self) {}
 }
